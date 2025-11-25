@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>數學環島大冒險：整數四則運算</title>
+    
+    <!-- 引入 Tailwind CSS (樣式庫) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- 引入 React 和 ReactDOM (核心庫) -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- 引入 Babel (讓瀏覽器看懂 JSX) -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- 自定義樣式 -->
+    <style>
+        @keyframes fade-in {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in { animation: fade-in 0.3s ease-out; }
+        
+        @keyframes spin-slow {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .animate-spin-slow { animation: spin-slow 20s linear infinite; }
+        
+        /* 隱藏捲軸但保留功能 */
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+        .scrollbar-hide {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 font-sans antialiased">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // --- 圖示元件定義 (替代外部 lucide-react 庫) ---
+        const IconBase = ({ size = 24, className = "", children }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                {children}
+            </svg>
+        );
+
+        const Volume2 = (p) => <IconBase {...p}><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></IconBase>;
+        const MapPin = (p) => <IconBase {...p}><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></IconBase>;
+        const Trophy = (p) => <IconBase {...p}><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 22h16"></path><path d="M10 14.66V17"></path><path d="M14 14.66V17"></path><path d="M12 2v20"></path><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"></path></IconBase>;
+        const ArrowRight = (p) => <IconBase {...p}><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></IconBase>;
+        const RefreshCw = (p) => <IconBase {...p}><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></IconBase>;
+        const CheckCircle = (p) => <IconBase {...p}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></IconBase>;
+        const XCircle = (p) => <IconBase {...p}><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></IconBase>;
+        const Star = (p) => <IconBase {...p}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></IconBase>;
+        const AlertCircle = (p) => <IconBase {...p}><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></IconBase>;
+        const BookOpen = (p) => <IconBase {...p}><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></IconBase>;
+        const Car = (p) => <IconBase {...p}><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"></path><circle cx="7" cy="17" r="2"></circle><path d="M9 17h6"></path><circle cx="17" cy="17" r="2"></circle></IconBase>;
+        const Mountain = (p) => <IconBase {...p}><path d="m8 3 4 8 5-5 5 15H2L8 3z"></path></IconBase>;
+        const Waves = (p) => <IconBase {...p}><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"></path><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"></path><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"></path></IconBase>;
+        const Building2 = (p) => <IconBase {...p}><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"></path><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"></path><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"></path><path d="M10 6h4"></path><path d="M10 10h4"></path><path d="M10 14h4"></path><path d="M10 18h4"></path></IconBase>;
+        const Calculator = (p) => <IconBase {...p}><rect width="16" height="20" x="4" y="2" rx="2"></rect><line x1="8" x2="16" y1="6" y2="6"></line><line x1="16" x2="16" y1="14" y2="18"></line><path d="M16 10h.01"></path><path d="M12 10h.01"></path><path d="M8 10h.01"></path><path d="M12 14h.01"></path><path d="M8 14h.01"></path><path d="M12 18h.01"></path><path d="M8 18h.01"></path></IconBase>;
+        const Trees = (p) => <IconBase {...p}><path d="M10 10v.2A3 3 0 0 1 8.9 16v0H5v0h0a3 3 0 0 1-1.1-5.8V10a3 3 0 0 1 5.3-2.06"></path><path d="M7 16v6"></path><path d="M13 19v3"></path><path d="M12 19h8.3a1 1 0 0 0 .7-1.7L18 14h.3a1 1 0 0 0 .7-1.7L16 9h.2a1 1 0 0 0 .6-1.7L13.2 3.2a1 1 0 0 0-1.4 0L8.2 7.3A1 1 0 0 0 8.8 9H9"></path></IconBase>;
+        const Bike = (p) => <IconBase {...p}><circle cx="5.5" cy="17.5" r="3.5"></circle><circle cx="18.5" cy="17.5" r="3.5"></circle><path d="M15 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm-3 11.5V14l-3-3 4-3 2 3h2"></path></IconBase>;
+        const Sun = (p) => <IconBase {...p}><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="m4.93 4.93 1.41 1.41"></path><path d="m17.66 17.66 1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="m6.34 17.66-1.41 1.41"></path><path d="m19.07 4.93-1.41 1.41"></path></IconBase>;
+        const Flag = (p) => <IconBase {...p}><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" x2="4" y1="22" y2="15"></line></IconBase>;
+
+        // --- 語音合成工具函數 ---
+        const speak = (text) => {
+            if (!window.speechSynthesis) return;
+            window.speechSynthesis.cancel();
+            
+            const speakText = text
+                .replace(/\+/g, '加')
+                .replace(/-/g, '減')
+                .replace(/×/g, '乘')
+                .replace(/÷/g, '除以')
+                .replace(/\(/g, '括號')
+                .replace(/\)/g, '')
+                .replace(/=/g, '等於')
+                .replace(/Correct!/g, '答對了')
+                .replace(/Incorrect/g, '答錯了');
+
+            const utterance = new SpeechSynthesisUtterance(speakText);
+            utterance.lang = 'zh-TW';
+            utterance.rate = 0.9;
+            
+            // 嘗試取得中文語音
+            const voices = window.speechSynthesis.getVoices();
+            const zhVoice = voices.find(v => v.lang.includes('zh-TW') || v.lang.includes('zh-HK') || v.lang.includes('zh'));
+            if (zhVoice) utterance.voice = zhVoice;
+            
+            window.speechSynthesis.speak(utterance);
+        };
+
+        // --- 隨機數生成核心邏輯 ---
+        const rand = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+        const shuffle = (array) => array.sort(() => Math.random() - 0.5);
+
+        const generateNumberOptions = (correctAnswer) => {
+            const options = new Set([correctAnswer]);
+            while (options.size < 3) {
+                const diff = rand(1, 5) * (Math.random() > 0.5 ? 1 : -1) * (Math.random() > 0.8 ? 10 : 1);
+                let wrong = correctAnswer + diff;
+                if (wrong <= 0) wrong = correctAnswer + rand(1, 10); 
+                options.add(wrong);
+            }
+            return shuffle(Array.from(options));
+        };
+
+        // --- 關卡定義 ---
+        const LEVELS = [
+            {
+                id: '8-1',
+                city: '台中',
+                title: '8-1 兩步驟連除',
+                concept: '重點提示：連除兩個數，等於除以這兩個數的積。例如：24 ÷ 2 ÷ 3 = 24 ÷ (2 × 3)。',
+                icon: Building2, 
+                decor: 'bg-gradient-to-br from-slate-800 to-blue-900',
+                generate: () => {
+                    const b = rand(2, 5);
+                    const c = rand(2, 5);
+                    const product = b * c;
+                    const factor = rand(2, 10);
+                    const a = product * factor * rand(2, 5);
+                    
+                    if (Math.random() > 0.5) {
+                        const correctEq = `${a} ÷ ${b} ÷ ${c}`;
+                        const wrongEq1 = `${a} ÷ ${b} × ${c}`; 
+                        const wrongEq2 = `${a} × ${b} ÷ ${c}`; 
+                        const wrongEq3 = `${a} ÷ (${b} + ${c})`; 
+                        const wrongs = shuffle([wrongEq1, wrongEq2, wrongEq3]).slice(0, 2);
+                        return {
+                            question: `烘焙坊做了 ${a} 片餅乾，每 ${b} 片裝一包，每 ${c} 包裝一盒，一共可以裝成幾盒？\n(請選出正確的算式)`,
+                            formula: correctEq,
+                            answer: correctEq, 
+                            options: shuffle([correctEq, ...wrongs]),
+                            hint: `總共有 ${a} 片，先分裝成包(除以${b})，再裝成盒(除以${c})。`,
+                            type: 'choice'
+                        };
+                    } else {
+                        return {
+                            question: `這兩個算式的答案相同嗎？\n${a} ÷ ${b} ÷ ${c} 和 ${a} ÷ (${b} × ${c})`,
+                            options: ['相同', '不相同'],
+                            answer: '相同',
+                            hint: '連除以兩個數，就等於除以這兩個數相乘喔！',
+                            type: 'choice'
+                        };
+                    }
+                }
+            },
+            {
+                id: '8-2',
+                city: '台南',
+                title: '8-2 多步驟問題',
+                concept: '重點提示：計算加減混合題時，可以先找能湊成「整十」或「整百」的數字先算。',
+                icon: Trees,
+                decor: 'bg-gradient-to-br from-slate-800 to-green-900',
+                generate: () => {
+                    const base = rand(1, 9) * 10; 
+                    const diff = rand(1, 9);
+                    const n1 = base + diff;      
+                    const n2 = rand(2, 8) * 10 - diff; 
+                    const n3 = rand(10, 99);     
+                    
+                    if (Math.random() > 0.5) {
+                        const ans = n1 + n3 + n2;
+                        return {
+                            question: `算算看：\n${n1} + ${n3} + ${n2} = ?`,
+                            formula: `${n1} + ${n3} + ${n2}`,
+                            answer: ans,
+                            options: generateNumberOptions(ans),
+                            hint: `有沒有發現 ${n1} 和 ${n2} 加起來剛好是整數？`,
+                            type: 'choice'
+                        };
+                    } else {
+                        const totalSub = n1 + n2; 
+                        const start = totalSub + rand(100, 300);
+                        return {
+                            question: `這兩個算式答案一樣嗎？\n${start} - ${n1} - ${n2} 和 ${start} - (${n1} + ${n2})`,
+                            options: ['一樣', '不一樣'],
+                            answer: '一樣',
+                            hint: '連續減去兩個數，等於減去這兩個數的總和。',
+                            type: 'choice'
+                        };
+                    }
+                }
+            },
+            {
+                id: '8-3',
+                city: '高雄',
+                title: '8-3 分配律',
+                concept: '重點提示：(甲+乙)×丙 = 甲×丙 + 乙×丙。把不一樣的數先加減起來，再一起乘！',
+                icon: Waves,
+                decor: 'bg-gradient-to-br from-slate-800 to-indigo-900',
+                generate: () => {
+                    const c = rand(2, 9);
+                    const a = rand(10, 50);
+                    const minSum = a + 10;
+                    const sum = Math.ceil(minSum / 10) * 10 + (rand(0, 2) * 10);
+                    const b = sum - a;
+                    const ans = (a * c) + (b * c);
+                    
+                    return {
+                        question: `算算看：\n${a} × ${c} + ${b} × ${c} = ?`,
+                        formula: `${a} × ${c} + ${b} × ${c}`,
+                        answer: ans,
+                        options: generateNumberOptions(ans),
+                        hint: `大家都有乘以 ${c}，可以變成 (${a} + ${b}) × ${c} 來算算看！`,
+                        type: 'choice'
+                    };
+                }
+            },
+            {
+                id: '8-4',
+                city: '花蓮',
+                title: '8-4 平均問題',
+                concept: '重點提示：平均就是移多補少。基本公式是：總和 ÷ 個數 = 平均。',
+                icon: Mountain,
+                decor: 'bg-gradient-to-br from-slate-800 to-teal-900',
+                generate: () => {
+                    const avg = rand(10, 30); 
+                    const diff1 = rand(1, 5);
+                    const n1 = avg - diff1;
+                    const n2 = avg;
+                    const n3 = avg + diff1;
+                    const nums = shuffle([n1, n2, n3]);
+                    
+                    const correctEq = `(${nums[0]} + ${nums[1]} + ${nums[2]}) ÷ 3`;
+                    const wrongEq1 = `${nums[0]} + ${nums[1]} + ${nums[2]} ÷ 3`; 
+                    const wrongEq2 = `(${nums[0]} + ${nums[1]} + ${nums[2]}) × 3`; 
+                    const wrongEq3 = `(${nums[0]} + ${nums[1]}) ÷ 3`; 
+                    const wrongs = shuffle([wrongEq1, wrongEq2, wrongEq3]).slice(0, 2);
+
+                    return {
+                        question: `豆豆三次考試的分數分別是 ${nums[0]}分、${nums[1]}分、${nums[2]}分，平均分數是幾分？\n(請選出正確的算式)`,
+                        formula: correctEq,
+                        answer: correctEq,
+                        options: shuffle([correctEq, ...wrongs]),
+                        hint: `平均要先算出「總分」，記得要把分數加起來用括號保護，再除以 3 喔！`,
+                        type: 'choice'
+                    };
+                }
+            },
+            {
+                id: '8-5',
+                city: '台北',
+                title: '8-5 四則運算規則',
+                concept: '重點提示：四則混合運算的黃金規則：「先乘除、後加減」，如果有「括號」要最先算括號裡面的喔！',
+                icon: Flag,
+                decor: 'bg-gradient-to-br from-slate-800 to-purple-900',
+                generate: () => {
+                    const type = rand(1, 3);
+                    if (type === 1) {
+                        const b = rand(2, 9);
+                        const c = rand(2, 5);
+                        const a = rand(10, 50);
+                        const ans = a + (b * c);
+                        const wrong1 = (a + b) * c; 
+                        const options = new Set([ans, wrong1]);
+                        while(options.size < 3) options.add(ans + rand(1,10)* (Math.random()>0.5?1:-1));
+                        
+                        return {
+                            question: `算算看：\n${a} + ${b} × ${c} = ?`,
+                            formula: `${a} + ${b} × ${c}`,
+                            answer: ans,
+                            options: shuffle(Array.from(options)),
+                            hint: `記得「先乘除、後加減」！要先算 ${b} × ${c} 喔！`,
+                            type: 'choice'
+                        };
+                    } else if (type === 2) {
+                        const c = rand(2, 5);
+                        const b = c * rand(2, 8); 
+                        const a = b + rand(10, 30);
+                        const ans = a - (b / c);
+                        const wrong1 = (a - b) / c; 
+                        const options = new Set([ans]);
+                        if (Number.isInteger(wrong1) && wrong1 > 0 && wrong1 !== ans) options.add(wrong1);
+                        while(options.size < 3) options.add(ans + rand(1,5) * (Math.random()>0.5?1:-1));
+
+                        return {
+                            question: `算算看：\n${a} - ${b} ÷ ${c} = ?`,
+                            formula: `${a} - ${b} ÷ ${c}`,
+                            answer: ans,
+                            options: shuffle(Array.from(options)),
+                            hint: `看到除號要先算！先把 ${b} ÷ ${c} 算出來，再用 ${a} 去減。`,
+                            type: 'choice'
+                        };
+                    } else {
+                        const a = rand(5, 15);
+                        const b = rand(5, 15);
+                        const c = rand(2, 6);
+                        const ans = (a + b) * c;
+                        const wrong1 = a + (b * c); 
+                        const options = new Set([ans, wrong1]);
+                        while(options.size < 3) options.add(ans + rand(1,10));
+
+                        return {
+                            question: `算算看：\n(${a} + ${b}) × ${c} = ?`,
+                            formula: `(${a} + ${b}) × ${c}`,
+                            answer: ans,
+                            options: shuffle(Array.from(options)),
+                            hint: `有括號這隻大老虎出現時，要先算括號裡面的 (${a} + ${b}) 喔！`,
+                            type: 'choice'
+                        };
+                    }
+                }
+            }
+        ];
+
+        // --- 按鈕元件 ---
+        const Button = ({ onClick, children, className = "", disabled = false, variant = 'primary' }) => {
+            const baseStyle = "px-6 py-3 rounded-2xl font-bold shadow-lg transform transition-all active:scale-95 flex items-center justify-center gap-2 text-lg";
+            const variants = {
+                primary: "bg-blue-600 hover:bg-blue-500 text-white border-b-4 border-blue-800 shadow-blue-900/50",
+                success: "bg-emerald-600 hover:bg-emerald-500 text-white border-b-4 border-emerald-800 shadow-emerald-900/50",
+                danger: "bg-rose-600 hover:bg-rose-500 text-white border-b-4 border-rose-800 shadow-rose-900/50",
+                outline: "bg-slate-700 text-slate-200 border-2 border-slate-600 hover:bg-slate-600",
+                disabled: "bg-slate-700 text-slate-500 cursor-not-allowed border-none shadow-none"
+            };
+            
+            return (
+                <button 
+                    onClick={disabled ? null : onClick} 
+                    className={`${baseStyle} ${disabled ? variants.disabled : variants[variant]} ${className}`}
+                >
+                    {children}
+                </button>
+            );
+        };
+
+        // --- 背景裝飾元件 ---
+        const BackgroundDecoration = ({ levelIdx }) => {
+            return (
+                <div className="absolute inset-0 overflow-hidden pointer-events-none z-0 opacity-20">
+                    <div className="absolute top-10 left-10 animate-bounce duration-[3000ms]"><Calculator size={48} /></div>
+                    <div className="absolute bottom-20 right-10 animate-pulse"><Bike size={64} /></div>
+                    <div className="absolute top-1/3 right-1/4 animate-spin-slow duration-[10000ms]"><Sun size={40} /></div>
+                    
+                    {levelIdx === 0 && <Building2 className="absolute bottom-0 left-20 w-32 h-32 text-blue-300 opacity-20" />}
+                    {levelIdx === 1 && <Trees className="absolute bottom-0 right-20 w-32 h-32 text-green-300 opacity-20" />}
+                    {levelIdx === 2 && <Waves className="absolute top-20 right-10 w-32 h-32 text-indigo-300 opacity-20" />}
+                    {levelIdx === 3 && <Mountain className="absolute bottom-10 left-10 w-40 h-40 text-teal-300 opacity-20" />}
+                    {levelIdx === 4 && <Flag className="absolute bottom-10 right-10 w-40 h-40 text-purple-300 opacity-20" />}
+                </div>
+            );
+        };
+
+        // --- 主應用程式 ---
+        function MathIslandIntegerOperations() {
+            const [gameState, setGameState] = useState('welcome');
+            const [currentLevelIdx, setCurrentLevelIdx] = useState(0);
+            const [score, setScore] = useState(0);
+            const [currentQuestion, setCurrentQuestion] = useState(null);
+            const [feedback, setFeedback] = useState(null);
+            const [startTime, setStartTime] = useState(null);
+
+            useEffect(() => {
+                if ((gameState === 'playing' || gameState === 'remedial') && !currentQuestion) {
+                    generateNewQuestion();
+                }
+            }, [gameState, currentLevelIdx, currentQuestion]); 
+
+            const generateNewQuestion = () => {
+                const level = LEVELS[currentLevelIdx];
+                const q = level.generate(); 
+                setCurrentQuestion({ ...q, levelTitle: level.title, levelConcept: level.concept, levelIcon: level.icon });
+                setFeedback(null);
+                setStartTime(Date.now());
+            };
+
+            const handleAnswer = (val) => {
+                if (feedback) return; 
+
+                let isCorrect = val === currentQuestion.answer;
+                const timeTaken = (Date.now() - startTime) / 1000;
+                
+                if (isCorrect) {
+                    const timeBonus = Math.max(0, Math.floor(30 - timeTaken) * 2);
+                    const points = 100 + timeBonus;
+                    
+                    speak("答對了！你好棒！");
+                    setScore(prev => prev + points);
+                    setFeedback({ type: 'correct', msg: `答對了！獲得 ${points} 分！` });
+                    
+                    setTimeout(() => {
+                        if (gameState === 'remedial') {
+                            if (currentLevelIdx + 1 < LEVELS.length) {
+                                setGameState('playing');
+                                setCurrentLevelIdx(prev => prev + 1);
+                                setCurrentQuestion(null); 
+                            } else {
+                                setGameState('finished');
+                            }
+                        } else {
+                            if (currentLevelIdx + 1 < LEVELS.length) {
+                                setCurrentLevelIdx(prev => prev + 1);
+                                setCurrentQuestion(null); 
+                            } else {
+                                setGameState('finished');
+                            }
+                        }
+                    }, 1500);
+                    
+                } else {
+                    speak("哎呀，答錯了。聽聽看小提示，再試一次吧！");
+                    setFeedback({ 
+                        type: 'wrong', 
+                        msg: '答案不對喔！',
+                        hint: currentQuestion.hint,
+                        concept: currentQuestion.levelConcept
+                    });
+                }
+            };
+
+            const startRemedial = () => {
+                setGameState('remedial');
+                setCurrentQuestion(null);
+            };
+            
+            const restartGame = () => {
+                setScore(0);
+                setCurrentLevelIdx(0);
+                setGameState('playing');
+                setCurrentQuestion(null);
+            };
+
+            const currentLevel = LEVELS[currentLevelIdx];
+            const bgTheme = "bg-slate-900 text-slate-100";
+
+            // 1. 歡迎畫面
+            if (gameState === 'welcome') {
+                return (
+                    <div className={`min-h-screen ${bgTheme} flex flex-col items-center justify-center p-4 relative overflow-hidden font-sans`}>
+                        <BackgroundDecoration levelIdx={-1} />
+                        <div className="bg-slate-800 p-8 rounded-3xl shadow-2xl max-w-lg w-full text-center border-4 border-blue-500 z-10">
+                            <div className="flex justify-center mb-6">
+                                <div className="bg-blue-900/50 p-6 rounded-full ring-4 ring-blue-500/30">
+                                    <Car size={64} className="text-blue-400" />
+                                </div>
+                            </div>
+                            <h1 className="text-4xl font-black text-white mb-4 tracking-wider">數學環島大冒險<br/><span className="text-2xl">整數四則運算篇</span></h1>
+                            <p className="text-xl text-slate-300 mb-8 font-medium">
+                                黑夜模式啟動！<br/>
+                                準備好開車繞台灣一圈了嗎？
+                            </p>
+                            <Button onClick={() => setGameState('playing')} className="w-full text-xl py-4">
+                                發動引擎出發 <ArrowRight className="ml-2" />
+                            </Button>
+                        </div>
+                    </div>
+                );
+            }
+
+            // 2. 結算畫面
+            if (gameState === 'finished') {
+                return (
+                    <div className={`min-h-screen ${bgTheme} flex flex-col items-center justify-center p-4 relative`}>
+                        <BackgroundDecoration levelIdx={-1} />
+                        <div className="bg-slate-800 p-8 rounded-3xl shadow-2xl max-w-lg w-full text-center border-4 border-yellow-500 z-10">
+                            <div className="flex justify-center mb-6">
+                                <Trophy size={80} className="text-yellow-400 animate-bounce" />
+                            </div>
+                            <h2 className="text-3xl font-bold text-white mb-2">環島之旅完成！</h2>
+                            <div className="text-6xl font-black text-yellow-400 my-6">{score} <span className="text-2xl text-slate-400">分</span></div>
+                            <p className="text-slate-300 mb-8">所有關卡挑戰成功，你是夜間車神！</p>
+                            <Button onClick={restartGame} variant="success" className="w-full">
+                                再來一圈 <RefreshCw className="ml-2" />
+                            </Button>
+                        </div>
+                    </div>
+                );
+            }
+
+            // 3. 遊戲主畫面
+            const IconComponent = currentLevel.icon || MapPin;
+
+            return (
+                <div className={`min-h-screen ${bgTheme} flex flex-col relative font-sans`}>
+                    <BackgroundDecoration levelIdx={currentLevelIdx} />
+
+                    <header className="bg-slate-800/90 backdrop-blur-md p-4 shadow-lg border-b border-slate-700 flex justify-between items-center sticky top-0 z-20">
+                        <div className="flex items-center gap-2">
+                            <div className="bg-blue-900/50 p-2 rounded-lg text-blue-300 font-bold flex items-center gap-2 border border-blue-800">
+                                <IconComponent size={20} /> 
+                                <span>{currentLevel.id}：{currentLevel.city}</span>
+                            </div>
+                            {gameState === 'remedial' && (
+                                <span className="bg-rose-900/50 text-rose-300 border border-rose-800 px-3 py-1 rounded-full text-sm font-bold flex items-center">
+                                    <RefreshCw size={14} className="mr-1"/> 補救教學中
+                                </span>
+                            )}
+                        </div>
+                        <div className="flex items-center gap-2 bg-yellow-900/30 px-4 py-2 rounded-full border border-yellow-700">
+                            <Star className="text-yellow-400 fill-yellow-400" size={20} />
+                            <span className="font-black text-yellow-400 text-xl">{score}</span>
+                        </div>
+                    </header>
+
+                    <main className="flex-1 max-w-2xl w-full mx-auto p-4 flex flex-col gap-6 z-10">
+                        
+                        <div className="flex justify-between items-center px-4 py-3 bg-slate-800 rounded-2xl shadow-lg border border-slate-700 overflow-x-auto scrollbar-hide">
+                            {LEVELS.map((level, idx) => {
+                                return (
+                                    <div key={level.id} className="flex flex-col items-center min-w-[60px] group">
+                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold mb-1 transition-all duration-300
+                                            ${idx < currentLevelIdx ? 'bg-emerald-600 text-white shadow-emerald-500/30 shadow-lg' : 
+                                            idx === currentLevelIdx ? 'bg-blue-500 text-white scale-110 ring-4 ring-blue-500/30 shadow-blue-500/50 shadow-lg' : 'bg-slate-700 text-slate-500'}`}>
+                                            {idx === currentLevelIdx ? <Car size={18} /> : (idx < currentLevelIdx ? <CheckCircle size={18} /> : idx + 1)}
+                                        </div>
+                                        <span className={`text-xs font-medium mt-1 ${idx === currentLevelIdx ? 'text-blue-400' : 'text-slate-500'}`}>
+                                            {level.city}
+                                        </span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        {currentQuestion && (
+                            <div className="bg-slate-800 rounded-3xl shadow-xl border border-slate-700 overflow-hidden animate-fade-in relative">
+                                <div className={`p-6 border-b border-slate-700 ${currentLevel.decor}`}>
+                                    <div className="flex justify-between items-start mb-3">
+                                        <span className="bg-black/20 text-white/90 px-3 py-1 rounded-full text-sm font-bold backdrop-blur-sm">
+                                            {currentQuestion.levelTitle}
+                                        </span>
+                                        <button 
+                                            onClick={() => speak(currentQuestion.question)}
+                                            className="bg-white/10 hover:bg-white/20 p-2 rounded-full transition-colors text-white"
+                                        >
+                                            <Volume2 size={24} />
+                                        </button>
+                                    </div>
+                                    <h3 className="text-2xl font-bold text-white leading-relaxed drop-shadow-md whitespace-pre-line">
+                                        {currentQuestion.question}
+                                    </h3>
+                                </div>
+                                
+                                <div className="bg-amber-900/20 px-6 py-4 border-b border-amber-900/30 flex gap-3">
+                                    <BookOpen className="text-amber-500 shrink-0 mt-1" size={20} />
+                                    <div>
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <span className="text-xs font-bold text-amber-200 bg-amber-900/60 px-2 py-0.5 rounded-full border border-amber-700/50">本節重點</span>
+                                            <button 
+                                                onClick={() => speak(currentQuestion.levelConcept)}
+                                                className="text-amber-500 hover:text-amber-400 transition-colors"
+                                            >
+                                                <Volume2 size={16} />
+                                            </button>
+                                        </div>
+                                        <p className="text-sm text-slate-300 leading-relaxed">
+                                            {currentQuestion.levelConcept}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="p-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {currentQuestion.options.map((opt, i) => (
+                                            <button
+                                                key={i}
+                                                onClick={() => !feedback && handleAnswer(opt)}
+                                                className="group relative bg-slate-700 hover:bg-blue-600 border-2 border-slate-600 hover:border-blue-400 rounded-xl p-6 transition-all text-xl font-bold text-slate-200 hover:text-white text-left shadow-lg flex items-center justify-between"
+                                            >
+                                                <span>{opt}</span>
+                                                <div 
+                                                    className="opacity-0 group-hover:opacity-100 p-2 bg-white/20 rounded-full text-white"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        speak(opt.toString());
+                                                    }}
+                                                >
+                                                    <Volume2 size={16} />
+                                                </div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {feedback && (
+                                    <div className={`p-6 border-t border-slate-700 animate-slide-up ${feedback.type === 'correct' ? 'bg-emerald-900/30' : 'bg-rose-900/30'}`}>
+                                        <div className="flex items-start gap-4">
+                                            {feedback.type === 'correct' ? (
+                                                <CheckCircle className="text-emerald-500 shrink-0" size={32} />
+                                            ) : (
+                                                <XCircle className="text-rose-500 shrink-0" size={32} />
+                                            )}
+                                            <div className="flex-1">
+                                                <h4 className={`text-xl font-bold mb-2 ${feedback.type === 'correct' ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                    {feedback.msg}
+                                                </h4>
+                                                
+                                                {feedback.type === 'wrong' && (
+                                                    <div className="bg-slate-900 p-4 rounded-xl border border-rose-900/50 shadow-inner mt-3">
+                                                        <div className="flex items-center gap-2 mb-2 text-rose-400 font-bold">
+                                                            <AlertCircle size={18} /> 思考小提示
+                                                            <button onClick={() => speak(feedback.hint)} className="ml-auto text-slate-500 hover:text-rose-400">
+                                                                <Volume2 size={18} />
+                                                            </button>
+                                                        </div>
+                                                        <p className="text-slate-300 text-sm bg-slate-800 p-3 rounded-lg border border-slate-700">💡 {feedback.hint}</p>
+                                                        
+                                                        <div className="mt-4">
+                                                            <Button onClick={startRemedial} variant="danger" className="w-full py-2 text-sm">
+                                                                再試一次類似題
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </main>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<MathIslandIntegerOperations />);
+    </script>
+</body>
+</html>
